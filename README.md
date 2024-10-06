@@ -16,6 +16,7 @@ This file contains implementations of several algorithms presented in **"Introdu
   - **Kruskal's** algorithm for minimum spanning trees
   - **Bellman-Ford**, **Dijkstra's**, and **Johnson's** algorithms for shortest paths
   - **Ford-Fulkerson** for maximum flow in a network
+- **Simplexe** algorithm for linear optimisation over convex bodies
 
 ### Notes
 
