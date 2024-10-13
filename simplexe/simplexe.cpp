@@ -1,10 +1,8 @@
 #include <bits/stdc++.h>
-#include "../../matrix/matrix.hpp"
 using namespace std;
 
 template <typename T>
-void display(const vector<vector<T>> &A, const string& message = "") {
-        if (!message.empty()) cout << message << endl;
+void display(vector<vector<T>> &A) {
         for(int i = 0; i < A.size(); ++i) {
                 for(int j = 0; j < A[0].size(); ++j) cout << A[i][j] << ' ';
                 cout << endl;
@@ -13,116 +11,101 @@ void display(const vector<vector<T>> &A, const string& message = "") {
 }
 
 template <typename T>
-void display(const vector<T> &vec, const string& message = "") {
-        if (!message.empty()) cout << message << endl;
+void display(vector<T> &vec) {
         for(int i = 0; i < vec.size(); ++i) cout << vec[i] << ' ';
-        cout << endl;
+        cout << endl<<endl;
 }
 
-void enter(vector<vector<double>> &A, vector<double>&b, vector<double> &c) {
-        cout << "Veuillez entrer les coefficients de la matrice A (contraintes) :" << endl;
-        for(int i = 0; i < A.size(); ++i) 
-            for(int j = 0; j < A[i].size(); ++j) 
-                cin >> A[i][j];
-                
-        cout << "Veuillez entrer le vecteur b (valeurs constantes des contraintes) :" << endl;
-        for(int i = 0; i < b.size(); ++i) 
-            cin >> b[i];
-            
-        cout << "Veuillez entrer le vecteur c (coefficients de la fonction objectif) :" << endl;
-        for(int i = 0; i < c.size(); ++i) 
-            cin >> c[i];
-}
+template <typename T>
+void pivot(vector<vector<T>> &A, vector<T> &b, vector<T> &c, T &nu,int e, int l) {
+        A[l][e] = 1/A[l][e];
+        b[l]    = -b[l] * A[l][e];
+        for(int i = 0; i < A[0].size(); ++i) if(i != e) A[l][i] *= -A[l][e];
 
-void compute_current_position(vector<double> &position, const vector<vector<double>> &A, const vector<double> &b, const vector<int> &base) {
-        for(int i = 0; i < position.size(); ++i) 
-            position[i] = 0;
+        for(int i = 0; i < A.size(); ++i) {
+                int line = i;
+                if(line == l) continue;
 
-        Matrix<double> B(base.size(), base.size());
-        for(int i = 0; i < base.size(); ++i) 
-            for(int j = 0; j < base.size(); ++j) 
-                B(i, j) = A[i][base[j]];
+                for(int j = 0; j < A[0].size(); ++j) if(j != e) A[i][j] += A[i][e]*A[l][j];
+                b[i]    += A[i][e] * b[l];
+                A[i][e]  *= A[l][e];
 
-        cout << "Affichage de la matrice B (base actuelle) :" << endl;
-        B.display();
-
-        auto inv = B.gaussian_inverse();
-        cout << "Affichage de l'inverse de B :" << endl;
-        inv.display();
-
-        display(b, "Affichage du vecteur b :");
-        auto tmp = inv.dot(b);
-
-        for(int i = 0; i < base.size(); ++i)
-            position[base[i]] = tmp[i];
-}
-
-bool continue_simplex(const vector<double> &c, const vector<int> &base) {
-        for(int i = 0; i < base.size(); ++i) 
-            if (c[base[i]] > 0) 
-                return true;
-        return false;
-}
-
-void simplex(vector<vector<double>> &A, vector<double> &b, vector<double> &c) {
-        int m = A.size();
-        int n = c.size();
-        vector<int> base(m);
-        vector<int> hbase(n);
-
-        for(int i = 0; i < m; ++i) {
-                A[i].resize(A[i].size() + m);
-                A[i][m + i] = 1;
-                base[i] = m + i;
         }
 
-        for(int i = 0; i < n; ++i) 
-            hbase[i] = i;
+        for(int i = 0; i < A[0].size(); ++i) if(i != e) c[i] += A[l][i] * c[e];
+        nu   += c[e]*b[l];
+        c[e] *= A[l][e];
+}
 
-        for(int i = 0; i < m; ++i) 
-            c.push_back(0);
+template <typename T>
+int continue_simplex(const vector<T> &c) {
+        for(int i = 0; i < c.size(); ++i) {
+                if(c[i] > 0) return i;
+        }
+        return -1;
+}
 
-        vector<double> current_position(n + m);
-        
-        display(A, "Affichage de la matrice augmentée A :");
-        compute_current_position(current_position, A, b, base);
-        
-        display(current_position, "Affichage de la position actuelle :");
+template <typename T>
+vector<T> simplex(vector<vector<T>> A, vector<T> b, vector<T> c) {
+        for(int i = 0; i < A.size(); ++i) for(int j = 0; j < A[0].size(); ++j) A[i][j] = -A[i][j];
 
-        while (continue_simplex(c, base)) {
-                for (int i = 0; i < base.size(); ++i) {
-                        if (c[base[i]] < 0) continue;
-                        double mn = numeric_limits<double>::max();
-                        int ele_swap = -1;
+        vector<int> hbase(A[0].size());
+        vector<int> base(A.size());
+        for(int i = 0; i < A[0].size(); ++i)    hbase[i]  = i;
+        for(int i = 0; i < A.size(); ++i) base[i] = A[0].size()+i;
 
-                        for (int j = 0; j < hbase.size(); ++j) {
-                                if (A[base[i]][hbase[j]] >= 0) continue;
-                                auto value = -(b[base[i]] / A[base[i]][hbase[j]]);
-                                if (value < mn) {
-                                        mn = value;
-                                        ele_swap = i;
-                                }
+        T nu = 0;
+        int index = continue_simplex(c);
+        while(index >= 0) {
+                int eq = 0;
+                T eq_value = (A[0][index] < 0) ?  -(b[0]/A[0][index]) : numeric_limits<T>::max();
+                for(int i = 1; i < A.size(); ++i) {
+                        if(A[i][index] >= 0) continue;
+                        auto value = -(b[i] / A[i][index]);
+                        if(value < eq_value) {
+                                eq_value = value;
+                                eq       = i;
                         }
                 }
+                if(eq_value == numeric_limits<T>::max()) {
+                        cout <<"NON BORNE"<<endl;
+                        break;
+                }
+                pivot(A,b,c,nu,index,eq);//index is the entering variable and eqs the outgoing one
+                swap(hbase[index], base[eq]);
+                index = continue_simplex(c);
         }
 
-        // Affichage de la solution optimale
-        cout << "LA solution optimale est : " << endl;
-        display(current_position);
+        vector<T> optimal(A[0].size());
+        for(int i = 0; i < A.size(); ++i) if(base[i] < A[0].size()) optimal[base[i]] = b[i];
+
+        cout << "Optimal solution: " << endl;
+        display(optimal);
+        cout << "Optimal value (nu) = " << nu << endl; // Print optimal value
+
+        return optimal;
 }
 
 int main() {
-        int n, m; // m le nombre de contraintes et n le nombre de variables
-        cout << "Veuillez entrer le nombre de contraintes (m) et de variables (n) :" << endl;
-        cin >> m >> n;
+        int m, n;
+        cout << "Entrez le nombre de contraintes (m) : ";
+        cin >> m;
+        cout << "Entrez le nombre de variables (n) : ";
+        cin >> n;
 
         vector<vector<double>> A(m, vector<double>(n));
         vector<double> b(m);
         vector<double> c(n);
+        cout << "Entrez les valeurs de la matrice A (m x n) :" << endl;
+        for(int i = 0; i < m; ++i) for(int j = 0; j < n; ++j) cin >> A[i][j];
 
-        enter(A, b, c);
-        simplex(A, b, c);
+        cout << "Entrez les valeurs du vecteur b (taille m) :" << endl;
+        for(int i = 0; i < m; ++i) cin >> b[i];
+            
 
+            cout << "Entrez les valeurs du vecteur c (taille n) :" << endl;
+        for(int i = 0; i < n; ++i) cin >> c[i];
+
+        simplex<double>(A, b, c);
         return 0;
 }
-
